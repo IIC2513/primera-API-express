@@ -1,0 +1,19 @@
+{
+  "name": "primera-API-express",
+  "version": "1.0.0",
+  "description": "API básica usando express basada en el reporisorio de Mi-primera-API de aaossa (github): https://github.com/IIC2513/Mi-primera-API",
+  "main": "src/index.js",
+  "repository": "https://github.com/IIC2513/primera-API-express",
+  "author": "Rodrigo Meza Aranda <rmezaa@uc.cl>",
+  "license": "MIT",
+  "scripts": {
+    "dev": "nodemon src/index.js"
+  },
+  "dependencies": {
+    "express": "^5.1.0",
+    "morgan": "^1.10.0"
+  },
+  "devDependencies": {
+    "nodemon": "^3.1.9"
+  }
+}
