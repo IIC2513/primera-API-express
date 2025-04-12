@@ -313,14 +313,111 @@ const config = require(__dirname + '/../config/config.js')[env]; // cambiar acá
 
 1. Creamos el modelo para la clase **Movie** (y su migración) usando Sequelize CLI: 
     - `yarn sequelize-cli model:generate --name Movie --attributes title:string,genre:string,description:string,rating:float`
+2. Creamos el modelo para la clase **Review** (y su migración) usando Sequelize CLI:
+    - `yarn sequelize-cli model:generate --name Review --attributes comment:string,rating:float,movieId:integer`
+3. Modificamos el archivo de migración de la clase Review para asegurarnos que cumple la asociación con la clase Movie, este debe verse así:
+```javascript
+'use strict';
+module.exports = {
+  async up(queryInterface, Sequelize) {
+    await queryInterface.createTable('Reviews', {
+      id: {
+        allowNull: false,
+        autoIncrement: true,
+        primaryKey: true,
+        type: Sequelize.INTEGER
+      },
+      comment: {
+        type: Sequelize.STRING
+      },
+      rating: {
+        type: Sequelize.FLOAT
+      },
+      movieId: {
+        type: Sequelize.INTEGER,
+        allowNull: false,
+        references: {
+          model: 'Movies', // nombre de la tabla a la que se hace referencia
+          key: 'id'
+        },
+        onUpdate: 'CASCADE',
+        onDelete: 'CASCADE'
+      },
+      createdAt: {
+        allowNull: false,
+        type: Sequelize.DATE
+      },
+      updatedAt: {
+        allowNull: false,
+        type: Sequelize.DATE
+      }
+    });
+  },
+  async down(queryInterface, Sequelize) {
+    await queryInterface.dropTable('Reviews');
+  }
+};
+```
+4. Editamos el método static associate del archivo **src/models/movie.js** para que se vea así:
+```javascript
+// src/models/movie.js
+'use strict';
+const { Model } = require('sequelize');
+module.exports = (sequelize, DataTypes) => {
+  class Movie extends Model {
+    static associate(models) {
+      // Una movie tiene muchas reviews
+      Movie.hasMany(models.Review, { foreignKey: 'movieId', as: 'reviews' });
+    }
+  }
+  Movie.init({
+    title: DataTypes.STRING,
+    genre: DataTypes.STRING,
+    description: DataTypes.STRING,
+    rating: DataTypes.FLOAT
+  }, {
+    sequelize,
+    modelName: 'Movie',
+  });
+  return Movie;
+};
 
-2. Ejecutamos la migración para crear la tabla correspondiente en la DB: 
+```
+5. Editamos el método static associate del archivo **src/models/review.js** para que se vea así:
+```javascript
+// src/models/review.js
+'use strict';
+const { Model } = require('sequelize');
+module.exports = (sequelize, DataTypes) => {
+  class Review extends Model {
+    static associate(models) {
+      // Una review pertenece a una movie
+      Review.belongsTo(models.Movie, { foreignKey: 'movieId', as: 'movie' });
+    }
+  }
+  Review.init({
+    comment: DataTypes.STRING,
+    rating: DataTypes.FLOAT,
+    movieId: DataTypes.INTEGER
+  }, {
+    sequelize,
+    modelName: 'Review',
+  });
+  return Review;
+};
+
+```
+6. Ejecutamos la migración para crear la tabla correspondiente en la DB: 
     - `yarn sequelize-cli db:migrate`
 
-3. Creamos un archivo de *seeds* para la tabla de películas:
+7. Creamos un archivo de *seeds* para la tabla de películas y para la tabla de Reviews:
     - `yarn sequelize-cli seed:generate --name first-movies`
+    - `yarn sequelize-cli seed:generate --name seed-reviews`
 
-4. Agregamos nuestras propias *seeds* en el archivo creado:
+8. Agregamos nuestras propias *seeds* en los archivos creado:
+
+Movies:
+
 ```javascript
 // src/seeders/*-first-movies.js
 'use strict';
@@ -349,11 +446,48 @@ module.exports = {
   }
 };
 ```
+Reviews:
+```javascript
+// src/seeders/{timestamp}-seed-reviews.js
+'use strict';
 
-5. Agregamos las *seeds* a la base de datos: 
+module.exports = {
+  async up(queryInterface, Sequelize) {
+    // Asegúrate de que existan películas antes de insertar reseñas
+    await queryInterface.bulkInsert('Reviews', [{
+      comment: '¡Excelente película!',
+      rating: 9.0,
+      movieId: 1, // Asegúrate de que el id 1 exista en Movies
+      createdAt: new Date(),
+      updatedAt: new Date()
+    },
+    {
+      comment: 'Pudo haber estado mejor.',
+      rating: 6.5,
+      movieId: 1,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    },
+    {
+      comment: 'Una obra maestra.',
+      rating: 9.5,
+      movieId: 2, // Supongamos que existe otra película con id 2
+      createdAt: new Date(),
+      updatedAt: new Date()
+    }], {});
+  },
+
+  async down(queryInterface, Sequelize) {
+    await queryInterface.bulkDelete('Reviews', null, {});
+  }
+};
+
+```
+
+9. Agregamos las *seeds* a la base de datos: 
     - `yarn sequelize-cli db:seed:all`
 
-6. Actualizamos el controlador de películas para cargar todas las películas disponibles:
+10. Actualizamos el controlador de películas para cargar todas las películas disponibles:
 ```javascript
 // src/routes/movies.js
 const express = require('express');
@@ -380,12 +514,12 @@ router.get('/', async (req, res) => {
 module.exports = router;
 ```
 
-7. Ejecutar servidor: 
+11. Ejecutar servidor: 
 ```
 yarn dev
 ```
 
-8. Probar servidor en [localhost:3000/movies](http://localhost:3000/movies) esperando recibir:
+12. Probar servidor en [localhost:3000/movies](http://localhost:3000/movies) esperando recibir:
 ```json
 [
   {
@@ -408,7 +542,29 @@ yarn dev
   }
 ]
 ```
+13. Podemos agregar un nuevo endpoint para también ver las reseñas de una Movie:
+```javascript
+// Endpoint para obtener una película y sus reseñas
+router.get('/:id', async (req, res) => {
+  try {
+    const movie = await Movie.findByPk(req.params.id, {
+      include: [
+        {
+          model: Review,
+          as: 'reviews'
+        }
+      ]
+    });
+    if (!movie) return res.status(404).json({ error: 'Película no encontrada' });
+    res.status(200).json(movie);
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: 'Error interno del servidor' });
+  }
+});
 
+```
+14. Podemos probarlo usando por ejemplo [localhost:3000/movies/1](http://localhost:3000/movies/1), obteniendo la Movie de id 1 con todas sus reseñas.
 
 ---
 
