@@ -20,4 +20,24 @@ router.get('/', async (req, res) => {
     }
 });
 
+// Endpoint para obtener una película y sus reseñas
+router.get('/:id', async (req, res) => {
+    try {
+      const movie = await Movie.findByPk(req.params.id, {
+        // incluimos las reviews de la pelicula
+        include: [
+          {
+            model: Review,
+            as: 'reviews'
+          }
+        ]
+      });
+      if (!movie) return res.status(404).json({ error: 'Película no encontrada' });
+      res.status(200).json(movie);
+    } catch (error) {
+      console.error(error);
+      res.status(500).json({ error: 'Error interno del servidor' });
+    }
+  });
+
 module.exports = router;
