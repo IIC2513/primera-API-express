@@ -7,6 +7,9 @@ const router = require('./routes');
 
 const app = express();
 
+// middleware para parsear JSON en todas las rutas
+app.use(express.json());
+
 // morgan middleware para mostrar logs de las peticiones HTTP en consola
 app.use(morgan('dev'));
 
