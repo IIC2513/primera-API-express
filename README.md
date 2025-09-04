@@ -30,6 +30,9 @@ const morgan = require('morgan');
 
 const app = express();
 
+// middlware JSON de express para que transforme de JSONstring a JSON (objeto) el body de las requests
+app.use(express.json());
+
 // morgan middleware para mostrar logs de las peticiones HTTP en consola
 app.use(morgan('dev'));
 
@@ -125,6 +128,7 @@ const morgan = require('morgan');
 const router = require('./routes');
 
 const app = express();
+app.use(express.json())
 app.use(morgan('dev'));
 
 // servidor utiliza el router principal
